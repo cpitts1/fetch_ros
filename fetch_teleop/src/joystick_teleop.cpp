@@ -34,6 +34,8 @@
  */
 
 #include <algorithm>
+#include <numeric>
+#include <list>
 #include <boost/thread/mutex.hpp>
 
 #include <ros/ros.h>
@@ -528,6 +530,28 @@ public:
       goal.trajectory.joint_names.push_back(head_pan_joint_);
       goal.trajectory.joint_names.push_back(head_tilt_joint_);
       trajectory_msgs::JointTrajectoryPoint p;
+      float avg = 100.0;
+      // If you've already passed in the number of values you want to average then remove the
+      // first value in the list
+      if (prev_vel_tilt_.size() == avg)
+      {
+        std::cout << prev_vel_tilt_.size() << " numbers have been added" << std::endl;
+        prev_pos_pan_.pop_front();
+        prev_pos_tilt_.pop_front();
+        prev_vel_pan_.pop_front();
+        prev_vel_tilt_.pop_front();
+      }
+      // Calculate the average of the previous values
+      pan = accumulate(prev_pos_pan_.begin(), prev_pos_pan_.end(), pan)/prev_pos_pan_.size();
+      tilt = accumulate(prev_pos_tilt_.begin(), prev_pos_tilt_.end(), tilt)/prev_pos_tilt_.size();
+      pan_vel = accumulate(prev_vel_pan_.begin(), prev_vel_pan_.end(), pan_vel)/prev_vel_pan_.size();
+      tilt_vel = accumulate(prev_vel_tilt_.begin(), prev_vel_tilt_.end(), tilt_vel)/prev_vel_tilt_.size();
+      // Add the newly calculated averages to each list
+      prev_pos_pan_.push_back(pan);
+      prev_pos_tilt_.push_back(tilt);
+      prev_vel_pan_.push_back(pan_vel);
+      prev_vel_tilt_.push_back(tilt_vel);
+      // Send the newest position and velocity to the joint trajectory point
       p.positions.push_back(pan);
       p.positions.push_back(tilt);
       p.velocities.push_back(pan_vel);
@@ -565,6 +589,7 @@ private:
   double desired_pan_, desired_tilt_;  // desired velocities
   double last_pan_, last_tilt_;
   boost::shared_ptr<client_t> client_;
+  std::list<double> prev_vel_tilt_, prev_vel_pan_, prev_pos_tilt_, prev_pos_pan_;
 };
 
 
@@ -693,6 +718,7 @@ int main(int argc, char** argv)
   ros::Rate r(30.0);
   while (ros::ok())
   {
+    std::cout << "Teleop running" << std::endl;
     ros::spinOnce();
     teleop.publish(ros::Duration(1/30.0));
     r.sleep();
