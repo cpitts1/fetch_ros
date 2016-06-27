@@ -57,7 +57,7 @@ double integrate(double desired, double present, double max_rate, double dt)
     return std::max(desired, present - max_rate * dt);
 }
 
-double average(std::list<double>& prev_values, float avg, double next_value) 
+double average(std::list<double>& prev_values, int avg, double next_value) 
 {
   // If you've already passed in the number of values you want to average then remove the
   //first value in the list
@@ -546,8 +546,8 @@ public:
       goal.trajectory.joint_names.push_back(head_pan_joint_);
       goal.trajectory.joint_names.push_back(head_tilt_joint_);
       trajectory_msgs::JointTrajectoryPoint p;
-      float pos_avg = 6.0;
-      float vel_avg = 120.0;
+      int num_pos_averaged = 6.0;
+      int num_vel_averaged = 120.0;
       pan = average(prev_pos_pan_, pos_avg, pan);
       pan_vel = average(prev_vel_pan_, vel_avg, pan_vel);
       tilt = average(prev_pos_tilt_, pos_avg, tilt);
