@@ -57,6 +57,22 @@ double integrate(double desired, double present, double max_rate, double dt)
     return std::max(desired, present - max_rate * dt);
 }
 
+double average(std::list<double>& prev_values, float avg, double next_value) 
+{
+  // If you've already passed in the number of values you want to average then remove the
+  //first value in the list
+  if (prev_values.size() == avg)
+  {
+    prev_values.pop_front();
+  }
+
+  // Calculate the average of the values in the list
+  double return_value = accumulate(prev_values.begin(), prev_values.end(), next_value)/(prev_values.size()+1);
+
+  // Add the newly calculated average to the list
+  prev_values.push_back(return_value);
+  return return_value;
+}
 
 class TeleopComponent
 {
@@ -530,27 +546,17 @@ public:
       goal.trajectory.joint_names.push_back(head_pan_joint_);
       goal.trajectory.joint_names.push_back(head_tilt_joint_);
       trajectory_msgs::JointTrajectoryPoint p;
-      float avg = 100.0;
-      // If you've already passed in the number of values you want to average then remove the
-      // first value in the list
-      if (prev_vel_tilt_.size() == avg)
-      {
-        std::cout << prev_vel_tilt_.size() << " numbers have been added" << std::endl;
-        prev_pos_pan_.pop_front();
-        prev_pos_tilt_.pop_front();
-        prev_vel_pan_.pop_front();
-        prev_vel_tilt_.pop_front();
-      }
-      // Calculate the average of the previous values
-      pan = accumulate(prev_pos_pan_.begin(), prev_pos_pan_.end(), pan)/prev_pos_pan_.size();
-      tilt = accumulate(prev_pos_tilt_.begin(), prev_pos_tilt_.end(), tilt)/prev_pos_tilt_.size();
-      pan_vel = accumulate(prev_vel_pan_.begin(), prev_vel_pan_.end(), pan_vel)/prev_vel_pan_.size();
-      tilt_vel = accumulate(prev_vel_tilt_.begin(), prev_vel_tilt_.end(), tilt_vel)/prev_vel_tilt_.size();
-      // Add the newly calculated averages to each list
-      prev_pos_pan_.push_back(pan);
-      prev_pos_tilt_.push_back(tilt);
-      prev_vel_pan_.push_back(pan_vel);
-      prev_vel_tilt_.push_back(tilt_vel);
+      float pos_avg = 6.0;
+      float vel_avg = 120.0;
+      pan = average(prev_pos_pan_, pos_avg, pan);
+      pan_vel = average(prev_vel_pan_, vel_avg, pan_vel);
+      tilt = average(prev_pos_tilt_, pos_avg, tilt);
+      tilt_vel = average(prev_vel_tilt_, vel_avg, tilt_vel);
+      // Make sure that you aren't surpassing the limits of the head
+      pan = std::max(min_pos_pan_, std::min(max_pos_pan_, pan));
+      tilt = std::max(min_pos_tilt_, std::min(max_pos_tilt_, tilt));
+      pan_vel = std::max(0.0, std::min(max_vel_pan_, pan_vel));
+      tilt_vel = std::max(0.0, std::min(max_vel_tilt_, tilt_vel));
       // Send the newest position and velocity to the joint trajectory point
       p.positions.push_back(pan);
       p.positions.push_back(tilt);
@@ -589,7 +595,7 @@ private:
   double desired_pan_, desired_tilt_;  // desired velocities
   double last_pan_, last_tilt_;
   boost::shared_ptr<client_t> client_;
-  std::list<double> prev_vel_tilt_, prev_vel_pan_, prev_pos_tilt_, prev_pos_pan_;
+  std::list<double> prev_pos_tilt_, prev_pos_pan_, prev_vel_tilt_, prev_vel_pan_;
 };
 
 
@@ -718,7 +724,6 @@ int main(int argc, char** argv)
   ros::Rate r(30.0);
   while (ros::ok())
   {
-    std::cout << "Teleop running" << std::endl;
     ros::spinOnce();
     teleop.publish(ros::Duration(1/30.0));
     r.sleep();
