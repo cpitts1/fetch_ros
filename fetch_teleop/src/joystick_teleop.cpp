@@ -57,7 +57,7 @@ double integrate(double desired, double present, double max_rate, double dt)
     return std::max(desired, present - max_rate * dt);
 }
 
-double average(std::list<double>& prev_values, int avg, double next_value) 
+double average(std::list<double>& prev_values, size_t avg, double next_value) 
 {
   // If you've already passed in the number of values you want to average then remove the
   //first value in the list
@@ -535,10 +535,14 @@ public:
     {
       // Fill in message (future dated with fixed time step)
       double step = 0.125;
+      size_t num_vel_averaged = 30;
+      size_t num_pos_averaged = 6;
       double pan_vel = integrate(desired_pan_, last_pan_, max_acc_pan_, step);
+      pan_vel = average(prev_vel_pan_, num_vel_averaged, pan_vel);
       double pan_travel = step * (pan_vel + last_pan_) / 2.0;
       double pan = std::max(min_pos_pan_, std::min(max_pos_pan_, actual_pos_pan_ + pan_travel));
       double tilt_vel = integrate(desired_tilt_, last_tilt_, max_acc_tilt_, step);
+      tilt_vel = average(prev_vel_tilt_, num_vel_averaged, tilt_vel);
       double tilt_travel = step * (tilt_vel + last_tilt_) / 2.0;
       double tilt = std::max(min_pos_tilt_, std::min(max_pos_tilt_, actual_pos_tilt_ + tilt_travel));
       // Publish message
@@ -546,12 +550,15 @@ public:
       goal.trajectory.joint_names.push_back(head_pan_joint_);
       goal.trajectory.joint_names.push_back(head_tilt_joint_);
       trajectory_msgs::JointTrajectoryPoint p;
-      int num_pos_averaged = 6.0;
-      int num_vel_averaged = 120.0;
+      // Average the previous velocity and position values
+      pan = average(prev_pos_pan_, num_pos_averaged, pan);
+      tilt = average(prev_pos_tilt_, num_pos_averaged, tilt);
+      /*
       pan = average(prev_pos_pan_, pos_avg, pan);
       pan_vel = average(prev_vel_pan_, vel_avg, pan_vel);
       tilt = average(prev_pos_tilt_, pos_avg, tilt);
       tilt_vel = average(prev_vel_tilt_, vel_avg, tilt_vel);
+      */
       // Make sure that you aren't surpassing the limits of the head
       pan = std::max(min_pos_pan_, std::min(max_pos_pan_, pan));
       tilt = std::max(min_pos_tilt_, std::min(max_pos_tilt_, tilt));
